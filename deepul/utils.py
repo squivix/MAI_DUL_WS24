@@ -29,6 +29,7 @@ def save_training_plot(
     plt.plot(x_train, train_losses, label="train loss")
     plt.plot(x_test, test_losses, label="test loss")
     plt.legend()
+    plt.grid()
     plt.title(title)
     plt.xlabel("Epoch")
     plt.ylabel("NLL")
@@ -169,7 +170,7 @@ def load_colored_mnist_text(file_path):
 
 
 def get_data_dir(hw_number: int):
-    return join('homeworks', f'hw{hw_number}', 'data')
+    return join('data')
 
 
 def quantize(images: np.ndarray, n_bits: int = 8):
