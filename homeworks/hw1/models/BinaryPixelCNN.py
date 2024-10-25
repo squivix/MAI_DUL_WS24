@@ -37,7 +37,7 @@ class BinaryPixelCNN(nn.Module):
         width = 20
         height = 20
         images = torch.zeros(size=(batch_size, 1, 20, 20)).to(device)
-        images[:, :, 0, 0] = 1  # torch.randint(0, 2, (batch_size, 1))
+        images[:, :, 0, 0] = torch.randint(0, 2, (batch_size, 1))
         with torch.no_grad():
             for i in range(width):
                 for j in range(height):
