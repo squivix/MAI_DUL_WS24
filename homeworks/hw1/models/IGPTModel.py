@@ -8,13 +8,14 @@ from layer.MaskedAttentionLayer import MaskedAttentionLayer
 class IGPTModel(nn.Module):
     def __init__(self, d_k=64, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.d_k = d_k
         self.module = nn.Sequential(
             nn.Flatten(1),
-            MaskedAttentionLayer(20 * 20, d_k, 800),
+            nn.Unflatten(1, (20 * 20, 1)),
+            MaskedAttentionLayer(embedding_size=1, head_dimension=1, sequence_length=400),
             nn.GELU(),
             nn.Linear(800, 800),
             nn.Unflatten(1, (2, 20, 20))
-
         )
 
     def loss_function(self, x, logits):

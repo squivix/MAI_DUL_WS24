@@ -24,7 +24,7 @@ def q3_a(train_data, test_data, image_shape, dset_id):
     - a (# of epochs + 1,) numpy array of test_losses evaluated once at initialization and after each epoch
     - a numpy array of size (100, H, W, 1) of samples with values in {0, 1}
     """
-    batch_size = 1
+    batch_size = 3
     learning_rate = 0.001
     max_epochs = 100
 
