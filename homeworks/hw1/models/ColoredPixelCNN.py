@@ -5,11 +5,11 @@ from torch.nn import functional as F
 from layer.MaskedConv2d import MaskedConv2d
 
 
-class BinaryPixelCNN(nn.Module):
+class ColoredPixelCNN(nn.Module):
     def __init__(self, filters=64):
         super().__init__()
         self.model = nn.Sequential(
-            MaskedConv2d(in_channels=1, out_channels=filters, kernel_size=7, padding="same", mask_type="A"),
+            MaskedConv2d(in_channels=3, out_channels=filters, kernel_size=7, padding="same", mask_type="A"),
             nn.ReLU(),
             MaskedConv2d(in_channels=filters, out_channels=filters, kernel_size=7, padding="same", mask_type="B"),
             nn.ReLU(),
