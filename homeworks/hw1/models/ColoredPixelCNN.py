@@ -9,7 +9,7 @@ class ColoredPixelCNN(nn.Module):
     def __init__(self, filters=64):
         super().__init__()
         self.model = nn.Sequential(
-            MaskedConv2d(in_channels=3, out_channels=filters, kernel_size=7, padding="same", mask_type="A"),
+            MaskedConv2d(in_channels=1, out_channels=filters, kernel_size=7, padding="same", mask_type="A"),
             nn.ReLU(),
             MaskedConv2d(in_channels=filters, out_channels=filters, kernel_size=7, padding="same", mask_type="B"),
             nn.ReLU(),
@@ -24,14 +24,19 @@ class ColoredPixelCNN(nn.Module):
 
             nn.Conv2d(in_channels=filters, out_channels=filters, kernel_size=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=filters, out_channels=2, kernel_size=1),
+            nn.Conv2d(in_channels=filters, out_channels=4, kernel_size=1),
         )
 
     def forward(self, x):
-        return self.model(x)
+        return self.model(torch.flatten(x, start_dim=1, end_dim=-2)[:, None])
 
     def loss_function(self, x, logits):
-        return F.nll_loss(torch.log_softmax(logits, dim=1), (x[:, 0] == -1).long())
+        x_flat = torch.flatten(x, start_dim=1, end_dim=-2)
+        return F.nll_loss(
+            torch.log_softmax(logits, dim=1),
+            x_flat.long()
+            #F.one_hot(x_flat.long(), num_classes=4).permute(0, 3, 1, 2)
+        )
 
     def generate(self, batch_size=1, device="cpu"):
         width = 20
