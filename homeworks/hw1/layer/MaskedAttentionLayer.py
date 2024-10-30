@@ -13,6 +13,8 @@ class MaskedAttentionLayer(nn.Module):
         self.v_weights = nn.Parameter(torch.Tensor(head_dimension, embedding_size))
         self.d_k = head_dimension
         self.mask = nn.Parameter(torch.triu(torch.ones(sequence_length, sequence_length), diagonal=1), requires_grad=False)
+        # TODO initilze params
+
 
     def forward(self, x):
         q = x @ self.q_weights
