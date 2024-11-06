@@ -1,17 +1,13 @@
-from matplotlib import pyplot as plt
-from torch.optim import Adam
-
-from models.ATT import AutoregressiveTransformer
-from models.IGPTModel import IGPTModel
-import torch
-from utils import rescale_tensor
-from torch.utils.data import TensorDataset, DataLoader
 import numpy as np
+import torch
+from torch.optim import Adam
+from torch.utils.data import TensorDataset, DataLoader
+
 from deepul.hw1_helper import (
     # Q3
     q3ab_save_results,
-    q3c_save_results,
 )
+from models.IGPTModel import IGPTModel
 
 
 def q3_a(train_data, test_data, image_shape, dset_id):
@@ -30,7 +26,7 @@ def q3_a(train_data, test_data, image_shape, dset_id):
     batch_size = 128
 
     learning_rate = 0.001
-    max_epochs = 50
+    max_epochs = 20
 
     train_dataset = TensorDataset(torch.tensor(train_data).permute((0, 3, 1, 2)).float())
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -39,18 +35,17 @@ def q3_a(train_data, test_data, image_shape, dset_id):
         x_flat = torch.flatten(x, start_dim=1)
         return  torch.cat((2 * torch.ones(x_flat.shape[0], 1).to(x_flat.device), x_flat), dim=1).long()
 
-    x_test = transform(torch.tensor(test_data).permute((0, 3, 1, 2)).float())
+    # x_test = transform(torch.tensor(test_data).permute((0, 3, 1, 2)).float())
 
     device =torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x_test = x_test.to(device)
+    # x_test = x_test.to(device)
 
-    model = IGPTModel(sequence_length=401)
-    # model = AutoregressiveTransformer(vocab_size=3, embed_dim=128, num_heads=1, num_layers=2, ff_hidden_dim=128, max_seq_len=401, device=device)
+    model = IGPTModel(max_sequence_length=401)
     model.to(device)
 
     optimizer = Adam(model.parameters(), lr=learning_rate)
-    train_losses = []
-    test_losses = []
+    train_losses = [0]
+    test_losses = [0]
     for epoch in range(max_epochs):
         batches = iter(train_loader)
 
@@ -68,10 +63,10 @@ def q3_a(train_data, test_data, image_shape, dset_id):
         train_losses.append(batch_train_loss.mean().item())
 
         model.eval()
-        with torch.no_grad():
-            test_logits = model.forward(x_test)
-            test_loss = model.loss_function(test_logits, x_test)
-            test_losses.append(test_loss.item())
+        # with torch.no_grad():
+        #     test_logits = model.forward(x_test)
+        #     test_loss = model.loss_function(test_logits, x_test)
+        #     test_losses.append(test_loss.item())
         model.train()
         print(f"epoch {epoch + 1}/{max_epochs}, train loss: {train_losses[-1]}, test loss: {test_losses[-1]}")
     # model = torch.load("model-tmp.pkl")
