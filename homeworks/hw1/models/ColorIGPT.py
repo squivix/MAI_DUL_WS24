@@ -7,7 +7,7 @@ from torch.nn import functional as F
 from layer.MaskedAttentionLayer import MaskedAttentionLayer
 
 
-class IGPTModel(nn.Module):
+class ColorIGPTModel(nn.Module):
     def __init__(self, vocab_size, max_sequence_length, n_heads=4, embed_dim=128, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.max_sequence_length = max_sequence_length
@@ -23,17 +23,25 @@ class IGPTModel(nn.Module):
         )
 
     def loss_function(self, logits, target):
-        logits = logits.permute(0, 2, 1)
+        logits = logits.permute(0, 3, 1, 2)
         target = target[:, 1:]
         logits = logits[:, :, :-1]
         return F.cross_entropy(logits, target)
 
     def forward(self, x):
-        embedding = self.token_embedding.forward(x) + self.position_embedding(torch.arange(0, x.shape[1], device=x.device))
-        f1 = self.module(embedding)
-        f3 = self.linear.forward(f1)
-
-        return f3
+        xr = x[:, 0]
+        xg = x[:, 1]
+        xb = x[:, 2]
+        embedding_r = self.token_embedding.forward(xr) + self.position_embedding(torch.arange(0, xr.shape[-1], device=x.device))
+        embedding_g = self.token_embedding.forward(xg) + self.position_embedding(torch.arange(0, xg.shape[-1], device=x.device))
+        embedding_b = self.token_embedding.forward(xb) + self.position_embedding(torch.arange(0, xb.shape[-1], device=x.device))
+        f1_r = self.module(embedding_r)
+        f1_g = self.module(embedding_g)
+        f1_b = self.module(embedding_b)
+        f3_r = self.linear.forward(f1_r)
+        f3_g = self.linear.forward(f1_g)
+        f3_b = self.linear.forward(f1_b)
+        return torch.stack((f3_r, f3_g, f3_b), dim=1)
 
     def generate(self, batch_size=1, device="cpu"):
         images = torch.zeros(size=(batch_size, 1)).to(device).long()
