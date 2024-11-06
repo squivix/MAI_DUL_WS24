@@ -7,19 +7,21 @@ from torch.nn import functional as F
 from layer.MaskedAttentionLayer import MaskedAttentionLayer
 
 
-class IGPTModel(nn.Module):
-    def __init__(self, max_sequence_length, n_heads=4, embed_dim=128, *args, **kwargs):
+class GATModel(nn.Module):
+    def __init__(self, vocab_size, context_length=128, n_heads=4, embed_dim=128, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.max_sequence_length = max_sequence_length
-        self.token_embedding = nn.Embedding(3, embed_dim)
-        self.position_embedding = nn.Embedding(max_sequence_length, embed_dim)
+        self.context_length = context_length
+        self.vocab_size = vocab_size
+
+        self.token_embedding = nn.Embedding(self.vocab_size, embed_dim)
+        self.position_embedding = nn.Embedding(context_length, embed_dim)
         self.module = nn.Sequential(
             MaskedAttentionLayer(embed_dim=embed_dim, n_heads=n_heads),
         )
         self.linear = nn.Sequential(
             nn.Linear(embed_dim, embed_dim),
             nn.GELU(),
-            nn.Linear(embed_dim, 3),
+            nn.Linear(embed_dim, vocab_size),
         )
 
     def loss_function(self, logits, target):
@@ -32,20 +34,19 @@ class IGPTModel(nn.Module):
         embedding = self.token_embedding.forward(x) + self.position_embedding(torch.arange(0, x.shape[1], device=x.device))
         f1 = self.module(embedding)
         f3 = self.linear.forward(f1)
-
         return f3
 
-    def generate(self, batch_size=1, device="cpu"):
-        images = torch.zeros(size=(batch_size, 1)).to(device).long()
-        images[:, 0] = 2
+    def generate(self, batch_size=1, max_sequence_length=100, device="cpu"):
+        texts = torch.zeros(size=(batch_size, 1)).to(device).long()
+        texts[:, 0] = 0
         with torch.no_grad():
-            for i in range(self.max_sequence_length):
+            for i in range(max_sequence_length):
                 if i == 0:
                     continue
-                next_logits = self.forward(images)
+                next_logits = self.forward(texts)
 
                 next_probs = torch.softmax(next_logits[:, -1, :-1], dim=1)
                 next_pixels = torch.multinomial(next_probs, num_samples=1)
-                images = torch.cat((images, next_pixels), dim=1)
+                texts = torch.cat((texts, next_pixels), dim=1)
 
-        return images[:, 1:].reshape(batch_size, 1, 20, 20)
+        return texts[:, 1:]
