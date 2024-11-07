@@ -38,14 +38,17 @@
 #     x_test = transform(torch.tensor(test_data).permute((0, 3, 1, 2)).float())
 #
 #     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#     x_test = x_test.to(device)
+#     test_dataset = TensorDataset(x_test)
+#     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 #
-#     model = IGPTModel(max_sequence_length=20 * 20 + 1)
+#     # x_test = x_test.to(device)
+#
+#     model = IGPTModel(3, max_sequence_length=image_shape[0] * image_shape[1] + 1)
 #     model.to(device)
 #
 #     optimizer = Adam(model.parameters(), lr=learning_rate)
-#     train_losses = [0]
-#     test_losses = [0]
+#     train_losses = []
+#     test_losses = []
 #     for epoch in range(max_epochs):
 #         batches = iter(train_loader)
 #
@@ -64,12 +67,16 @@
 #
 #         model.eval()
 #         with torch.no_grad():
-#             test_logits = model.forward(x_test)
-#             test_loss = model.loss_function(test_logits, x_test)
-#             test_losses.append(test_loss.item())
+#             batch_test_loss = np.empty(len(batches))
+#             for i, [test_batch_x] in enumerate(test_loader):
+#                 test_batch_x = test_batch_x.to(device)
+#                 test_logits = model.forward(test_batch_x)
+#                 test_loss = model.loss_function(test_logits, test_batch_x)
+#                 batch_test_loss[i] = test_loss.item()
+#             test_losses.append(batch_test_loss.mean())
 #         model.train()
 #         print(f"epoch {epoch + 1}/{max_epochs}, train loss: {train_losses[-1]}, test loss: {test_losses[-1]}")
-#     samples = model.generate(100, device).permute((0, 2, 3, 1)).numpy(force=True)
+#     samples = model.generate(100, device).unflatten(1, (image_shape[0], image_shape[1])).unsqueeze(-1).numpy(force=True)
 #     return train_losses, test_losses, samples
 #
 #
@@ -78,21 +85,14 @@
 #
 #
 # main()
-import math
 
 import numpy as np
 import torch
+from deepul.hw1_helper import q5a_save_results
 from torch.optim import Adam
 from torch.utils.data import TensorDataset, DataLoader
 
-from deepul.hw1_helper import q5a_save_results
 from models.GATModel import GATModel
-
-
-def create_non_overlapping_windows(tokens, context_size, padding):
-    tokens_tensor = torch.tensor(tokens)
-    padded_length = context_size * math.ceil(len(tokens) / context_size)
-    return torch.cat((tokens_tensor, torch.full((padded_length - len(tokens),), padding)), dim=0).unflatten(0, (context_size, padded_length // context_size))
 
 
 def q5_a(train_text, test_text):
@@ -107,24 +107,28 @@ def q5_a(train_text, test_text):
     """
     batch_size = 128
 
-    learning_rate = 0.00001
-    max_epochs = 50
+    learning_rate = 0.001
+    max_epochs = 100
     context_length = 128
+    sliding_window_step = batch_size
+
     vocabulary = ["<bos>", *list(set("".join(train_text + test_text))), "<eos>"]
-    vocab_to_index = {value: index + 1 for index, value in enumerate(vocabulary)}
+    vocab_to_index = {value: index for index, value in enumerate(vocabulary)}
 
     x_train = [item for text in train_text for item in [0, *[vocab_to_index[c] for c in text], len(vocabulary) - 1]]
-    x_test = [item for text in train_text for item in [0, *[vocab_to_index[c] for c in text], len(vocabulary) - 1]]
-    x_train = create_non_overlapping_windows(x_train, context_length, len(vocabulary) - 1).T
-    x_test = create_non_overlapping_windows(x_test, context_length, len(vocabulary) - 1).T
+    x_test = [item for text in test_text for item in [0, *[vocab_to_index[c] for c in text], len(vocabulary) - 1]]
+    x_train = torch.tensor(x_train).unfold(0, context_length, sliding_window_step)
+    x_test = torch.tensor(x_test).unfold(0, context_length, sliding_window_step)
 
     train_dataset = TensorDataset(x_train)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    device =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x_test = x_test.to(device)
+    test_dataset = TensorDataset(x_test)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
-    model = GATModel(vocab_size=len(vocabulary))
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model = GATModel(vocab_size=len(vocabulary), context_length=context_length, embed_dim=128)
     model.to(device)
 
     optimizer = Adam(model.parameters(), lr=learning_rate)
@@ -134,7 +138,7 @@ def q5_a(train_text, test_text):
         batches = iter(train_loader)
 
         batch_train_loss = np.empty(len(batches))
-        for i, [batch_x] in enumerate(batches):
+        for i, [batch_x] in (enumerate(batches)):
             batch_x = batch_x.to(device)
             logits = model.forward(batch_x)
 
@@ -148,13 +152,24 @@ def q5_a(train_text, test_text):
 
         model.eval()
         with torch.no_grad():
-            test_logits = model.forward(x_test)
-            test_loss = model.loss_function(test_logits, x_test)
-            test_losses.append(test_loss.item())
+            batch_test_loss = np.empty(len(batches))
+            for i, [test_batch_x] in enumerate(test_loader):
+                test_batch_x = test_batch_x.to(device)
+                test_logits = model.forward(test_batch_x)
+                test_loss = model.loss_function(test_logits, test_batch_x)
+                batch_test_loss[i] = test_loss.item()
+            test_losses.append(batch_test_loss.mean())
         model.train()
         print(f"epoch {epoch + 1}/{max_epochs}, train loss: {train_losses[-1]}, test loss: {test_losses[-1]}")
     samples = model.generate(5, max_sequence_length=128, device=device).numpy(force=True)
-    text_samples = ["".join([vocabulary[vi] for vi in sample]) for sample in samples]
+    text_samples = []
+    for sample in samples:
+        gen_text = []
+        for vi in sample:
+            gen_text.append(vocabulary[vi])
+            if vi == len(vocabulary) - 1:
+                break
+        text_samples.append("".join(gen_text))
     return train_losses, test_losses, text_samples
 
 

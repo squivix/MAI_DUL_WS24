@@ -31,22 +31,23 @@ class GATModel(nn.Module):
         return F.cross_entropy(logits, target)
 
     def forward(self, x):
-        embedding = self.token_embedding.forward(x) + self.position_embedding(torch.arange(0, x.shape[1], device=x.device))
-        f1 = self.module(embedding)
-        f3 = self.linear.forward(f1)
+        f1 = self.token_embedding.forward(x) + self.position_embedding(torch.arange(0, x.shape[1], device=x.device))
+        f2 = self.module(f1)
+        f3 = self.linear.forward(f1 + f2)
+
         return f3
 
     def generate(self, batch_size=1, max_sequence_length=100, device="cpu"):
         texts = torch.zeros(size=(batch_size, 1)).to(device).long()
         texts[:, 0] = 0
         with torch.no_grad():
-            for i in range(max_sequence_length):
+            for i in range(min(self.context_length, max_sequence_length)):
                 if i == 0:
                     continue
                 next_logits = self.forward(texts)
 
                 next_probs = torch.softmax(next_logits[:, -1, :-1], dim=1)
-                next_pixels = torch.multinomial(next_probs, num_samples=1)
-                texts = torch.cat((texts, next_pixels), dim=1)
+                next_tokens = torch.multinomial(next_probs, num_samples=1)
+                texts = torch.cat((texts, next_tokens), dim=1)
 
         return texts[:, 1:]

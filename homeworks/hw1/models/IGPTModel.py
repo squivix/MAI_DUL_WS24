@@ -1,5 +1,3 @@
-import math
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -11,15 +9,19 @@ class IGPTModel(nn.Module):
     def __init__(self, vocab_size, max_sequence_length, n_heads=4, embed_dim=128, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.max_sequence_length = max_sequence_length
+
         self.token_embedding = nn.Embedding(vocab_size, embed_dim)
         self.position_embedding = nn.Embedding(max_sequence_length, embed_dim)
         self.module = nn.Sequential(
             MaskedAttentionLayer(embed_dim=embed_dim, n_heads=n_heads),
         )
+        exp = 2
         self.linear = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim),
+            nn.Linear(embed_dim, embed_dim * exp),
             nn.GELU(),
-            nn.Linear(embed_dim, vocab_size),
+            nn.Linear(embed_dim * exp, embed_dim * exp),
+            nn.GELU(),
+            nn.Linear(embed_dim * exp, vocab_size),
         )
 
     def loss_function(self, logits, target):
@@ -29,9 +31,9 @@ class IGPTModel(nn.Module):
         return F.cross_entropy(logits, target)
 
     def forward(self, x):
-        embedding = self.token_embedding.forward(x) + self.position_embedding(torch.arange(0, x.shape[1], device=x.device))
-        f1 = self.module(embedding)
-        f3 = self.linear.forward(f1)
+        f1 = self.token_embedding.forward(x) + self.position_embedding(torch.arange(0, x.shape[1], device=x.device))
+        f2 = self.module(f1)
+        f3 = self.linear.forward(f1 + f2)
 
         return f3
 
@@ -48,4 +50,4 @@ class IGPTModel(nn.Module):
                 next_pixels = torch.multinomial(next_probs, num_samples=1)
                 images = torch.cat((images, next_pixels), dim=1)
 
-        return images[:, 1:].reshape(batch_size, 1, 20, 20)
+        return images[:, 1:]
