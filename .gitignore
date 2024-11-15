@@ -1,5 +1,15 @@
+.mypy_cache/
+.ipynb_checkpoints
+*.DS_Store
+*.egg-info
+*__pycache__
+*.png
+*.pkl
+*.jpg
+*.pth
+*.pt
+.vscode/
 data
-venv
-__pycache__
 .directory
 .idea
+venv
