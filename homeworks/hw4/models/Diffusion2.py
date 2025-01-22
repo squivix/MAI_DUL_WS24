@@ -79,6 +79,7 @@ class Diffusion2(nn.Module):
             if i != len(self.hidden_dims) - 1:
                 self.downsample_blocks.append(Downsample(prev_ch))
                 down_block_chans.append(prev_ch)
+
         self.res_blocks_mid = nn.ModuleList([
             ResidualBlock(prev_ch, prev_ch, temb_channels),
             ResidualBlock(prev_ch, prev_ch, temb_channels),
@@ -141,9 +142,9 @@ class Diffusion2(nn.Module):
         half = dim // 2
         freqs = torch.tensor(np.exp(-np.log(max_period) * np.arange(0, half) / half), dtype=torch.float32).to(timesteps.device)
         args = timesteps[:, None] * freqs[None]
-        embedding = torch.cat((torch.cos(args), torch.sin(args)), axis=-1)
+        embedding = torch.cat([torch.cos(args), torch.sin(args)], axis=-1)
         if dim % 2:
-            embedding = torch.cat((embedding, torch.zeros_like(embedding[:, :1], dtype=torch.float32)), axis=-1)
+            embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1], dtype=torch.float32)], axis=-1)
         return embedding
 
     @staticmethod
